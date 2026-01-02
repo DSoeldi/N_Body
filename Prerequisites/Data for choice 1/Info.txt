@@ -1,0 +1,17 @@
+Here you can find a pdf with instructions regarding the first part of the N-body project, and the data (two formats: .ascii and .txt) you need to solve the task. You also find attached the original paper by L. Hernquist (1990).
+The data file is made of a header and sequential arrays (each array has a single column data entry), as follows:
+Header
+Number of particles (N), Number of gas particles (N*=0 there is actually no gas-particle), Number of star particles
+Arrays (running in i=1,...,N)
+Masses[i]
+x[i]
+y[i]
+z[i]
+Vx[i]
+Vy[i]
+Vz[i]
+softening[i]
+potential[i]
+Softening and potential are there just to keep a standard input/output. You should vary the softening when working on the project, but ignore the entry containing the potential.
+This is also the data used for choice 1 of task 2 of the N-body project.
+If you solve choice 2 of task 2, please see the data in the "Disk" folder".

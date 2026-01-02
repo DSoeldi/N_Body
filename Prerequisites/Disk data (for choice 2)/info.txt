@@ -1,0 +1,6 @@
+Here you can find the data you need for the second choice of task 2 of the N-body project.
+You can find data for Task 2 (choice 2) attached below. The data are organized in these columns: ID, mass, x, y, z, vx, vy, vz, softening. The units are normalized so that G=1.
+data0 is built on a grid and has 1007 particles in the disk
+data1 is built on a grid and has 9912 particles in the disk
+data0_noise is built on a grid with some random noise and has 1007 particles in the disk
+data1_noise is built on a grid with some random noise and has 9912 particles in the disk
