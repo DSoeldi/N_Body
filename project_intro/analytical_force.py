@@ -8,6 +8,8 @@ def calc_analytical_force(r, m, epsilon):
     r_all = norm(r, axis=1)
     
     for i in range(n):
+        if i % 10 == 0: 
+            print(f"Analytical Progress {epsilon}: ", (i/n)*100)
         r_i = r_all[i]
         # Mass enclosed, excluding particle i itself
         M_enc = np.sum(m[r_all < r_i])

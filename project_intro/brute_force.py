@@ -23,8 +23,8 @@ def calc_brute_force(r, m, epsilon):
     Force = np.zeros_like(r)  # three dimensional vector forces, like the radius vector
     n = len(r)
     for i in range(n):
-        if i % 5 == 0: 
-            print("Progress: ", (i/n)*100)
+        if i % 10 == 0: 
+            print(f"Brute Progress {epsilon}: ", (i/n)*100)
         for j in range(i+1, n):
             # Vector from i to j
             d_r = r[j] - r[i]
