@@ -15,7 +15,7 @@ def calc_analytical_force(r, m, epsilon):
         M_enc = np.sum(m[r_all < r_i])
         
         if r_i > 0:
-            force_magnitude = G * M_enc * m[i] / (r_i + epsilon)**2 # how strong the force on particle i is
+            force_magnitude = G * M_enc * m[i] / (r_i+epsilon)**3 # how strong the force on particle i is
             forces[i] = -force_magnitude * (r[i] / r_i)  # which direction it points
             # negative because of attraction to the center
     return forces
