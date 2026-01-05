@@ -4,18 +4,21 @@ import matplotlib.pyplot as plt
 from numpy.linalg import norm
 
 path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Data for choice 1\data.txt'
-galaxy = pd.read_csv(path, sep = '\t', header = None, index_col=0)
-colnames = ["Mass", "x", "y", "z", "Vx", "Vy", "Vz", "softening", "potential"]
-galaxy.columns = colnames
-minigalaxy = galaxy.sample(n = 10)
+def get_galaxy_data(path, n = 100):
+    """reads the galaxy data and returns:
+    the vectors m, r, v of the minigalaxy with n particles, 
+    the minigalaxy as a dataframe
+    the full galaxy as a dataframe"""
+    df = pd.read_csv(path, sep = '\t', header = None, index_col=0)
+    colnames = ["Mass", "x", "y", "z", "Vx", "Vy", "Vz", "softening", "potential"]
+    df.columns = colnames
+    minigalaxy = df.sample(n = n)
+    m_mini = np.array(minigalaxy.loc[:, 'Mass'])
+    r_mini = np.array(minigalaxy.loc[:, 'x':'z'])
+    v_mini = np.array(minigalaxy.loc[:, 'Vx':'Vz'])
+    return m_mini, r_mini, v_mini, minigalaxy, df
 
-def get_data(df):
-    m = np.array(df.loc[:, 'Mass'])
-    r = np.array(df.loc[:, 'x':'z'])
-    v = np.array(df.loc[:, 'Vx':'Vz'])
-    return m, r, v
-
-def calc_force(r,m, epsilon):
+def calc_force(r,m, epsilon): 
     G = 1
     Force = np.zeros_like(m)
     n = len(r)
@@ -32,11 +35,11 @@ def calc_force(r,m, epsilon):
             Force[j] -= force
     return Force
 
-m, r, v = get_data(minigalaxy)
-epsilon = 0.048596998711201725
-Force = calc_force(r, m, epsilon)
+# m, r, v, minigalaxy, galaxy = get_galaxy_data(path, n = 10)
+# epsilon = 0.048596998711201725
+# Force = calc_force(r, m, epsilon)
 
-print(Force)
+# print(Force)
 
 
 
