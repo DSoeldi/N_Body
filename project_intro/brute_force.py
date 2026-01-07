@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from numpy.linalg import norm
+import numba
 
 path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Data for choice 1\data.txt'
 def get_galaxy_data(path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Data for choice 1\data.txt', n = 100):
@@ -11,6 +12,8 @@ def get_galaxy_data(path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Do
     df = pd.read_csv(path, sep = '\t', header = None, index_col=0)
     colnames = ["Mass", "x", "y", "z", "Vx", "Vy", "Vz", "softening", "potential"]
     df.columns = colnames
+    if n == None:
+        n = len(df)
     df["radial_range"] = norm(df[["x","y","z"]].values, axis = 1)
     minigalaxy = df.sample(n = n)
     m_mini = np.array(minigalaxy.loc[:, 'Mass'])
@@ -18,6 +21,7 @@ def get_galaxy_data(path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Do
     v_mini = np.array(minigalaxy.loc[:, 'Vx':'Vz'])
     return m_mini, r_mini, v_mini, minigalaxy, df
 
+@numba.jit(nopython = True) 
 def calc_brute_force(r, m, epsilon): 
     G = 1
     Force = np.zeros_like(r)  # three dimensional vector forces, like the radius vector
