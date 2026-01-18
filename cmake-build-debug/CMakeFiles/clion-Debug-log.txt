@@ -1,0 +1,1 @@
+CMakeLists.txt not found in C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body Select CMakeLists.txt
