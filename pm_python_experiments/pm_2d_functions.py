@@ -1,7 +1,9 @@
 import numpy as np
 from scipy.fft import fft2, ifft2
 from scipy.interpolate import RegularGridInterpolator
+from scipy.spatial import cKDTree
 import pandas as pd
+import numba
 
 def generateGrid(N:int,Boundaries:tuple):
     """
@@ -16,31 +18,80 @@ def generateGrid(N:int,Boundaries:tuple):
     Grid['x'], Grid['y'] = X, Y
     return Grid
 
-def oneNodeMassAssignment(Particle, Grid, total_mass):
-    """
-    xxx
-    """
-    N = len(Grid)
-    particle_position = np.array(Particle[["x", "y"]])
-    gridpoints = np.column_stack((Grid["x"].ravel(), Grid["y"].ravel())) 
-    distances = np.linalg.norm(gridpoints - particle_position, axis = 1)
-    closest_coord = np.argmin(distances) # index of minimal distance in the stacked coordinate array
-    closest_index = np.unravel_index(closest_coord, (N,N)) # return indexes in NxN array
-    Grid["mass"][closest_index] += Particle["M"]/total_mass
-    return Grid
+# def oneNodeMassAssignment(Particle, Grid, total_mass):
+#     """
+#     xxx
+#     """
+#     N = len(Grid)
+#     particle_position = np.array(Particle[["x", "y"]])
+#     gridpoints = np.column_stack((Grid["x"].ravel(), Grid["y"].ravel())) 
+#     distances = np.linalg.norm(gridpoints - particle_position, axis = 1)
+#     closest_coord = np.argmin(distances) # index of minimal distance in the stacked coordinate array
+#     closest_index = np.unravel_index(closest_coord, (N,N)) # return indexes in NxN array
+#     Grid["mass"][closest_index] += Particle["M"]/total_mass
+#     return Grid
 
-def populateMassGrid(galaxy, Grid):
-    """
-    xxx
-    """
-    length = len(galaxy)
-    total_mass = galaxy.M.sum()
-    Grid["mass"] = np.zeros_like(Grid["mass"])
-    for index, particle in galaxy.iterrows():
-        # if index % 10 == 0:
-        #     print(f"progress: {round(100*index/length, 1)}% done")
-        Grid = oneNodeMassAssignment(particle, Grid, total_mass)
-    return Grid
+# def oneNodeMassAssignment(galaxy_array, Grid, total_mass):
+#     """
+#     xxx
+#     """
+#     N = len(Grid)
+#     gridpoints = np.column_stack((Grid["x"].ravel(), Grid["y"].ravel())) 
+#     tree = cKDTree(gridpoints)
+#     particle_points = np.column_stack((galaxy_array['x'], galaxy_array['y']))
+#     _, indices = tree.query(particle_points)
+#     print(indices)
+#     return Grid
+
+@numba.jit(nopython=True)
+def populateMassGrid_JIT(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
+    mass_grid = np.zeros((N, N))
+    
+    for i in range(len(galaxy_x)):
+        min_dist = np.inf
+        min_idx = 0
+        
+        # Find closest grid point
+        for j in range(len(grid_x_flat)):
+            dx = grid_x_flat[j] - galaxy_x[i]
+            dy = grid_y_flat[j] - galaxy_y[i]
+            dist = dx*dx + dy*dy
+            if dist < min_dist:
+                min_dist = dist
+                min_idx = j
+        
+        row = min_idx // N
+        col = min_idx % N
+        mass_grid[row, col] += galaxy_M[i] / total_mass
+    
+    return mass_grid
+
+# @numba.jit(nopython = True)
+# def populateMassGrid_JIT(galaxy_array, Grid, total_mass):
+#     """
+#     xxx
+#     """
+#     length = len(galaxy_array)
+#     N = len(Grid)
+#     Grid["mass"].fill(0)
+#     for particle in galaxy_array:
+#         particle_position = np.array([particle['x'], particle['y']])
+#         gridpoints = np.column_stack((Grid['x'].ravel(), Grid['y'].ravel()))
+
+#         # Compute distances manually
+#         distances = np.zeros(len(gridpoints))
+#         for i in range(len(gridpoints)):
+#             dx = gridpoints[i, 0] - particle_position[0]
+#             dy = gridpoints[i, 1] - particle_position[1]
+#             distances[i] = np.sqrt(dx*dx + dy*dy)
+
+#         closest_coord = np.argmin(distances)
+#         # Manual conversion from flat index to 2D index
+#         row = closest_coord // N
+#         col = closest_coord % N
+#         Grid['mass'][row, col] += particle['M'] / total_mass
+
+#     return Grid
 
 def calcPotential(Grid):
     """
@@ -67,10 +118,6 @@ def calcPotential(Grid):
 
     return Grid
 
-
-########################## Claude
-
-
 def compute_forces(Grid, dx, dy):
     """
     Compute the gravitational forces from the potential using central differences.
@@ -94,10 +141,20 @@ def compute_forces(Grid, dx, dy):
     
     return Fx, Fy
 
-def fullGridCalc(galaxy, Grid, dx, dy):
+def fullGridCalc(galaxy_array, Grid, dx, dy):
     """returns the forces in x and y directions from the galaxy and the grid
     this calculation is needed before the acceleration step in the leap frog scheme"""
-    Grid = populateMassGrid(galaxy, Grid)
+    galaxy_x = galaxy_array['x']
+    galaxy_y = galaxy_array['y']
+    galaxy_M = galaxy_array['M']
+    total_mass = np.sum(galaxy_M)
+    
+    # Extract and flatten grid coordinates
+    grid_x_flat = Grid['x'].ravel()
+    grid_y_flat = Grid['y'].ravel()
+    N = len(Grid)
+    Grid["mass"] = populateMassGrid_JIT(galaxy_x, galaxy_y, galaxy_M, 
+                                     grid_x_flat, grid_y_flat, N, total_mass)    
     Grid = calcPotential(Grid)
     return compute_forces(Grid, dx, dy) # (Fx, Fy)
 
@@ -151,10 +208,10 @@ def leapfrog_integration(galaxy, Grid, dt, N=100):
     """
     dx = 2.0 / N
     dy = 2.0 / N
+    galaxy_array = galaxy.to_records(index=False)  # Konvertieren
 
     # Compute forces on the grid
-    Fx, Fy = fullGridCalc(galaxy, Grid, dx, dy)
-    galaxy_array = galaxy.to_records(index=False)  # Konvertieren
+    Fx, Fy = fullGridCalc(galaxy_array, Grid, dx, dy)
 
     # Interpolate forces to particle positions
     fx, fy = interpolate_forces_to_particles(galaxy_array, Grid, Fx, Fy)
@@ -174,9 +231,9 @@ def leapfrog_integration(galaxy, Grid, dt, N=100):
     
     # Recompute forces at new positions
     # Compute forces on the grid
-    galaxy = pd.DataFrame(galaxy_array, columns=['M', 'x', 'y', 'z', 'vx','vy', 'vz', 'eps'])
-    Fx, Fy = fullGridCalc(galaxy, Grid, dx, dy)
-    galaxy_array = galaxy.to_records(index=False)  # Konvertieren
+    # galaxy = pd.DataFrame(galaxy_array, columns=['M', 'x', 'y', 'z', 'vx','vy', 'vz', 'eps'])
+    Fx, Fy = fullGridCalc(galaxy_array, Grid, dx, dy)
+    # galaxy_array = galaxy.to_records(index=False)  # Konvertieren
 
     # Interpolate forces to particle positions
     fx_new, fy_new = interpolate_forces_to_particles(galaxy_array, Grid, Fx, Fy)
@@ -192,3 +249,15 @@ def leapfrog_integration(galaxy, Grid, dt, N=100):
     return galaxy
 
 
+# def populateMassGrid(galaxy_array, Grid):
+#     """
+#     xxx
+#     """
+#     length = len(galaxy_array)
+#     total_mass = galaxy_array.M.sum()
+#     Grid["mass"] = np.zeros_like(Grid["mass"])
+#     for particle in galaxy_array.iterrows():
+#         # if index % 10 == 0:
+#         #     print(f"progress: {round(100*index/length, 1)}% done")
+#         Grid = oneNodeMassAssignment(particle, Grid, total_mass)
+#     return Grid
