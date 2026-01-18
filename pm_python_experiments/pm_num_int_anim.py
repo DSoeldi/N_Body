@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
+from celluloid import Camera
 
 
 
@@ -12,20 +13,20 @@ N = 300
 
 # Generate Grid
 Grid = pm.generateGrid(N,(-1,1))
-TE_list = []
+
+fig1, ax1 = plt.subplots()
+camera = Camera(fig1)
 galaxy_new = galaxy
-pm.energyDiagnostics(galaxy_new, Grid, verbose = True)
 for i in range(1000):
+    print(i)
     galaxy_new = pm.leapfrog_integration(galaxy_new, Grid, 0.0001, N)
-    _,_,TE = pm.energyDiagnostics(galaxy_new, Grid, verbose = True)
-    TE_list.append(TE)
-
-plt.scatter(data = galaxy_new, x="x",y="y", s = 1);
-plt.show()
-
-
-plt.plot(TE_list)
-plt.show()
+    plt.scatter(data = galaxy_new, x="x",y="y", s = 1);
+    camera.snap()
+anim = camera.animate(blit = True)
+anim.save("scatter.gif")
 
 
-
+# fig, (ax1, ax2) = plt.subplots(1,2, figsize = [14,7])
+# ax1.scatter(data = galaxy, x="x",y="y", s = 1);
+# ax2.scatter(data = galaxy_new, x="x",y="y", s = 1);
+# plt.show()

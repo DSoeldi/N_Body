@@ -66,6 +66,72 @@ def populateMassGrid_JIT(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
     
     return mass_grid
 
+@numba.jit(nopython=True)
+def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
+    """
+    Cloud-in-Cell mass assignment: distribute mass to 4 nearest grid points
+    using bilinear interpolation weights.
+    """
+    mass_grid = np.zeros((N, N))
+    
+    # Extract grid bounds and spacing from flattened coordinates
+    # Assuming regular grid
+    x_min = grid_x_flat[0]
+    x_max = grid_x_flat[-1]
+    y_min = grid_y_flat[0]
+    y_max = grid_y_flat[-1]
+    
+    dx = (x_max - x_min) / (N - 1)
+    dy = (y_max - y_min) / (N - 1)
+    
+    for i in range(len(galaxy_x)):
+        px = galaxy_x[i]
+        py = galaxy_y[i]
+        mass = galaxy_M[i] / total_mass
+        
+        # Find the grid cell (lower-left corner indices)
+        # This gives us the index of the grid point to the lower-left of the particle
+        i_cell = int((px - x_min) / dx)
+        j_cell = int((py - y_min) / dy)
+        
+        # Clamp to valid grid range (avoid boundary issues)
+        if i_cell < 0:
+            i_cell = 0
+        elif i_cell >= N - 1:
+            i_cell = N - 2
+            
+        if j_cell < 0:
+            j_cell = 0
+        elif j_cell >= N - 1:
+            j_cell = N - 2
+        
+        # Calculate fractional position within the cell (0 to 1)
+        x_cell = x_min + i_cell * dx
+        y_cell = y_min + j_cell * dy
+        
+        fx = (px - x_cell) / dx
+        fy = (py - y_cell) / dy
+        
+        # Clamp fractional positions to [0, 1]
+        if fx < 0.0:
+            fx = 0.0
+        elif fx > 1.0:
+            fx = 1.0
+            
+        if fy < 0.0:
+            fy = 0.0
+        elif fy > 1.0:
+            fy = 1.0
+        
+        # Distribute mass to 4 corners using bilinear weights
+        # (i_cell, j_cell) is bottom-left in grid indices
+        mass_grid[j_cell, i_cell] += mass * (1.0 - fx) * (1.0 - fy)
+        mass_grid[j_cell, i_cell + 1] += mass * fx * (1.0 - fy)
+        mass_grid[j_cell + 1, i_cell] += mass * (1.0 - fx) * fy
+        mass_grid[j_cell + 1, i_cell + 1] += mass * fx * fy
+    
+    return mass_grid
+
 # @numba.jit(nopython = True)
 # def populateMassGrid_JIT(galaxy_array, Grid, total_mass):
 #     """
@@ -105,13 +171,13 @@ def calcPotential(Grid):
     kx = 2 * np.pi * np.fft.fftfreq(nx)
     ky = 2 * np.pi * np.fft.fftfreq(ny)
     Kx, Ky = np.meshgrid(kx, ky)
-    k_squared = Kx**2 + Ky**2
+    k_squared = Kx**2 + Ky**2 + 0.118
 
     # Avoid division by zero at k=0
     k_squared[0, 0] = 1.0
 
     # Compute the potential in frequency space
-    potential_fft = 4 * np.pi * 1 * density_fourier_space / k_squared # G = 1
+    potential_fft = 2 * np.pi * 1 * density_fourier_space / k_squared # G = 1
 
     # Perform the inverse FFT
     Grid["potential"] = np.real(ifft2(potential_fft))
@@ -138,6 +204,13 @@ def compute_forces(Grid, dx, dy):
     # axis=1 is x-direction, axis=0 is y-direction
     Fx = -np.gradient(potential, dx, axis=1)
     Fy = -np.gradient(potential, dy, axis=0)
+
+    # Apply the softening factor to the distance
+    softened_distance = np.sqrt(dx**2 + dy**2)
+
+    # Normalize the force by the softened distance
+    Fx /= softened_distance
+    Fy /= softened_distance
     
     return Fx, Fy
 
@@ -153,7 +226,7 @@ def fullGridCalc(galaxy_array, Grid, dx, dy):
     grid_x_flat = Grid['x'].ravel()
     grid_y_flat = Grid['y'].ravel()
     N = len(Grid)
-    Grid["mass"] = populateMassGrid_JIT(galaxy_x, galaxy_y, galaxy_M, 
+    Grid["mass"] = populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, 
                                      grid_x_flat, grid_y_flat, N, total_mass)    
     Grid = calcPotential(Grid)
     return compute_forces(Grid, dx, dy) # (Fx, Fy)
@@ -261,3 +334,25 @@ def leapfrog_integration(galaxy, Grid, dt, N=100):
 #         #     print(f"progress: {round(100*index/length, 1)}% done")
 #         Grid = oneNodeMassAssignment(particle, Grid, total_mass)
 #     return Grid
+
+
+###################### diagnostics
+
+def diagnosticsKineticEnergy(galaxy):
+    mass = galaxy.M
+    vx = galaxy.vx
+    vy = galaxy.vy
+    return 0.5 * np.sum(mass * (vx**2+vy**2))
+
+def diagnosticsPotentialEnergy(Grid):
+    PE = np.sum(0.5 * np.sum(Grid['mass'] * Grid['potential']) * np.sum(Grid['mass']), axis = None)
+    return PE
+
+import sys
+def energyDiagnostics(galaxy, Grid, verbose = False):
+    KE = diagnosticsKineticEnergy(galaxy)
+    PE = diagnosticsPotentialEnergy(Grid)
+    TE = KE+PE
+    if verbose:
+        print(f"KE: {KE}, PE: {PE}, TE: {TE}")
+    return KE, PE, TE
