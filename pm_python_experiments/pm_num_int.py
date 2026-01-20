@@ -8,24 +8,32 @@ from scipy.interpolate import RegularGridInterpolator
 
 path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Disk data (for choice 2)\data0.txt'
 galaxy = pd.read_csv(path, sep = '\t', index_col=0)
-N = 300
-
+N = 200
+print(galaxy)
 # Generate Grid
 Grid = pm.generateGrid(N,(-1,1))
-TE_list = []
+Energy_list = []
+Mass_list = []
 galaxy_new = galaxy
 pm.energyDiagnostics(galaxy_new, Grid, verbose = True)
 for i in range(1000):
-    galaxy_new = pm.leapfrog_integration(galaxy_new, Grid, 0.0001, N)
-    _,_,TE = pm.energyDiagnostics(galaxy_new, Grid, verbose = True)
-    TE_list.append(TE)
+    galaxy_new = pm.leapfrog_integration(galaxy_new, Grid, 0.001, N)
+    Mass = np.sum(galaxy_new["M"])
+    Energies = pm.energyDiagnostics(galaxy_new, Grid, verbose = True)
+    Energy_list.append(Energies)
+    Mass_list.append(Mass)
 
 plt.scatter(data = galaxy_new, x="x",y="y", s = 1);
 plt.show()
 
 
-plt.plot(TE_list)
+plt.plot(Energy_list)
+plt.title("Energies")
+plt.legend(labels = ["Kinetic", "Potential", "Total"])
 plt.show()
 
 
+plt.plot(Mass_list)
+plt.title("Masses")
+plt.show()
 

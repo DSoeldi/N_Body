@@ -9,7 +9,7 @@ from celluloid import Camera
 
 path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Disk data (for choice 2)\data0.txt'
 galaxy = pd.read_csv(path, sep = '\t', index_col=0)
-N = 300
+N = 100
 
 # Generate Grid
 Grid = pm.generateGrid(N,(-1,1))
@@ -19,7 +19,7 @@ camera = Camera(fig1)
 galaxy_new = galaxy
 for i in range(1000):
     print(i)
-    galaxy_new = pm.leapfrog_integration(galaxy_new, Grid, 0.0001, N)
+    galaxy_new = pm.leapfrog_integration(galaxy_new, Grid, 0.001, N)
     plt.scatter(data = galaxy_new, x="x",y="y", s = 1);
     camera.snap()
 anim = camera.animate(blit = True)

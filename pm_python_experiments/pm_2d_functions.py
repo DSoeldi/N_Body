@@ -171,13 +171,17 @@ def calcPotential(Grid):
     kx = 2 * np.pi * np.fft.fftfreq(nx)
     ky = 2 * np.pi * np.fft.fftfreq(ny)
     Kx, Ky = np.meshgrid(kx, ky)
-    k_squared = Kx**2 + Ky**2 + 0.118
+    k_squared = Kx**2 + Ky**2 +(2 * np.pi / 0.118)**2### softening squared?
 
     # Avoid division by zero at k=0
     k_squared[0, 0] = 1.0
 
     # Compute the potential in frequency space
     potential_fft = 2 * np.pi * 1 * density_fourier_space / k_squared # G = 1
+
+    # # Apply softening by modifying the kernel
+    # softening_kernel = np.exp(-0.118 * np.sqrt(k_squared))
+    # potential_fft *= softening_kernel
 
     # Perform the inverse FFT
     Grid["potential"] = np.real(ifft2(potential_fft))
@@ -205,12 +209,12 @@ def compute_forces(Grid, dx, dy):
     Fx = -np.gradient(potential, dx, axis=1)
     Fy = -np.gradient(potential, dy, axis=0)
 
-    # Apply the softening factor to the distance
-    softened_distance = np.sqrt(dx**2 + dy**2)
+    # # Apply the softening factor to the distance
+    # softened_distance = np.sqrt(dx**2 + dy**2)
 
-    # Normalize the force by the softened distance
-    Fx /= softened_distance
-    Fy /= softened_distance
+    # # Normalize the force by the softened distance
+    # Fx /= softened_distance
+    # Fy /= softened_distance
     
     return Fx, Fy
 
@@ -345,14 +349,54 @@ def diagnosticsKineticEnergy(galaxy):
     return 0.5 * np.sum(mass * (vx**2+vy**2))
 
 def diagnosticsPotentialEnergy(Grid):
-    PE = np.sum(0.5 * np.sum(Grid['mass'] * Grid['potential']) * np.sum(Grid['mass']), axis = None)
+    PE = 0.5 * np.sum(Grid['mass'] * Grid['potential']) * np.sum(Grid['mass'])
     return PE
 
 import sys
+from numpy.linalg import norm
 def energyDiagnostics(galaxy, Grid, verbose = False):
     KE = diagnosticsKineticEnergy(galaxy)
-    PE = diagnosticsPotentialEnergy(Grid)
+    r = np.array(galaxy.loc[:, 'x':'y'])
+    m = np.array(galaxy.loc[:, 'M'])
+    PE = np.sum(calc_potential_energy_brute(r, m, 0.118))
     TE = KE+PE
     if verbose:
         print(f"KE: {KE}, PE: {PE}, TE: {TE}")
     return KE, PE, TE
+
+
+
+#####################################################
+@numba.jit(nopython=True)
+def calc_potential_energy_brute(r, m, epsilon):
+    """
+    Calculate gravitational potential energy using direct summation.
+    
+    PE = -G * Σ(i<j) [m_i * m_j / sqrt(r_ij² + ε²)]
+    
+    Parameters:
+    - r: particle positions (N x 2 array)
+    - m: particle masses (N array)
+    - epsilon: softening length
+    
+    Returns:
+    - Total potential energy (should be negative)
+    """
+    G = 1.0
+    PE = 0.0
+    n = len(r)
+    
+    for i in range(n):
+        for j in range(i + 1, n):
+            # Vector separation
+            dx = r[j, 0] - r[i, 0]
+            dy = r[j, 1] - r[i, 1]
+            
+            # Distance with softening
+            dist_squared = dx**2 + dy**2 + epsilon**2
+            dist = np.sqrt(dist_squared)
+            
+            # Potential energy contribution (negative!)
+            PE -= G * m[i] * m[j] / dist
+    
+    return PE

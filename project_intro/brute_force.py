@@ -32,10 +32,10 @@ def calc_brute_force(r, m, epsilon):
         for j in range(i+1, n):
             # Vector from i to j
             d_r = r[j] - r[i]
-            dist = norm(d_r)
+            dist = norm(d_r+epsilon)
             
             # Force magnitude, one dimension
-            force_magnitude = G * m[i] * m[j] / (dist + epsilon)**2
+            force_magnitude = G * m[i] * m[j] / (dist**2) ###  + epsilon**2 which version of dist and epsilon 
             
             # Force vector (direction from i to j)
             force_vector = force_magnitude * (d_r / dist)
