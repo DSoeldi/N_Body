@@ -13,7 +13,7 @@ def generateGrid(N:int,Boundaries:tuple):
     Coordinates = np.round(np.linspace(left,right,N),int(np.log10(N)+1))
     X, Y = np.meshgrid(Coordinates, Coordinates)
     # Generate the grid with predetermined types
-    Grid = np.zeros((N, N), dtype=[('x', float), ('y', float), ('mass', float), ('potential', float)])
+    Grid = np.zeros((N, N), dtype=[('x', float), ('y', float), ('mass', float), ('potential', float), ('radial_range', float)])
     # Populate the grid with the coordinate values
     Grid['x'], Grid['y'] = X, Y
     return Grid
@@ -66,6 +66,7 @@ def populateMassGrid_JIT(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
     
     return mass_grid
 
+# version without dividing through area
 @numba.jit(nopython=True)
 def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
     """
@@ -132,6 +133,78 @@ def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
     
     return mass_grid
 
+# # version with dividing through area
+# @numba.jit(nopython=True)
+# def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
+#     """
+#     Cloud-in-Cell mass assignment: distribute mass to 4 nearest grid points
+#     using bilinear interpolation weights and calculate the actual density.
+#     """
+#     mass_grid = np.zeros((N, N))
+    
+#     # Extract grid bounds and spacing from flattened coordinates
+#     # Assuming regular grid
+#     x_min = grid_x_flat[0]
+#     x_max = grid_x_flat[-1]
+#     y_min = grid_y_flat[0]
+#     y_max = grid_y_flat[-1]
+    
+#     dx = (x_max - x_min) / (N - 1)
+#     dy = (y_max - y_min) / (N - 1)
+#     cell_area = dx * dy  # Area of each grid cell
+    
+#     for i in range(len(galaxy_x)):
+#         px = galaxy_x[i]
+#         py = galaxy_y[i]
+#         mass = galaxy_M[i] / total_mass
+        
+#         # Find the grid cell (lower-left corner indices)
+#         # This gives us the index of the grid point to the lower-left of the particle
+#         i_cell = int((px - x_min) / dx)
+#         j_cell = int((py - y_min) / dy)
+        
+#         # Clamp to valid grid range (avoid boundary issues)
+#         if i_cell < 0:
+#             i_cell = 0
+#         elif i_cell >= N - 1:
+#             i_cell = N - 2
+            
+#         if j_cell < 0:
+#             j_cell = 0
+#         elif j_cell >= N - 1:
+#             j_cell = N - 2
+        
+#         # Calculate fractional position within the cell (0 to 1)
+#         x_cell = x_min + i_cell * dx
+#         y_cell = y_min + j_cell * dy
+        
+#         fx = (px - x_cell) / dx
+#         fy = (py - y_cell) / dy
+        
+#         # Clamp fractional positions to [0, 1]
+#         if fx < 0.0:
+#             fx = 0.0
+#         elif fx > 1.0:
+#             fx = 1.0
+            
+#         if fy < 0.0:
+#             fy = 0.0
+#         elif fy > 1.0:
+#             fy = 1.0
+        
+#         # Distribute mass to 4 corners using bilinear weights
+#         # (i_cell, j_cell) is bottom-left in grid indices
+#         mass_grid[j_cell, i_cell] += mass * (1.0 - fx) * (1.0 - fy)
+#         mass_grid[j_cell, i_cell + 1] += mass * fx * (1.0 - fy)
+#         mass_grid[j_cell + 1, i_cell] += mass * (1.0 - fx) * fy
+#         mass_grid[j_cell + 1, i_cell + 1] += mass * fx * fy
+    
+#     # Calculate the actual density by dividing the mass by the cell area
+#     density_grid = mass_grid / cell_area
+    
+#     return density_grid
+
+
 # @numba.jit(nopython = True)
 # def populateMassGrid_JIT(galaxy_array, Grid, total_mass):
 #     """
@@ -171,7 +244,7 @@ def calcPotential(Grid):
     kx = 2 * np.pi * np.fft.fftfreq(nx)
     ky = 2 * np.pi * np.fft.fftfreq(ny)
     Kx, Ky = np.meshgrid(kx, ky)
-    k_squared = Kx**2 + Ky**2 +(2 * np.pi / 0.118)**2### softening squared?
+    k_squared = Kx**2 + Ky**2 +(2 * np.pi / 0.118)**2 ### softening squared?
 
     # Avoid division by zero at k=0
     k_squared[0, 0] = 1.0
