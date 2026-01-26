@@ -29,7 +29,7 @@ Grid["radial_range"] = np.sqrt(Grid["x"]**2 + Grid["y"]**2)
 
 max_rr = Grid['radial_range'].max()
 
-radial_range_bins = np.linspace(0,max_rr,50)
+radial_range_bins = np.linspace(0,max_rr,15)
 
 # sum_integration = []
 # theoretical_sum = []
@@ -48,9 +48,6 @@ radial_range_bins = np.linspace(0,max_rr,50)
 # plt.scatter(radial_range_bins, theoretical_sum)
 # plt.show()
 
-
-sum_integration = []
-theoretical_sum = []
 sum_integration = []
 theoretical_sum = []
 
@@ -66,7 +63,7 @@ for i in range(1, len(radial_range_bins)):
     
     # Calculate EXPECTED TOTAL MASS in this bin from theory
     r_center = (radial_range_bins[i] + radial_range_bins[i-1]) / 2
-    sigma_at_center = 20 * (r_center / 0.1)**(-2)
+    sigma_at_center = 72.5 * (r_center / 0.1)**(-2)
     
     # Area of annular bin
     r_inner = radial_range_bins[i-1]
@@ -78,6 +75,10 @@ for i in range(1, len(radial_range_bins)):
     theoretical_sum.append(expected_mass)
 
 
-plt.plot(radial_range_bins[1:], sum_integration)
-plt.scatter(radial_range_bins[1:], theoretical_sum)
-plt.show()
+plt.scatter(radial_range_bins[1:], sum_integration, label = "data radial density", color = "tab:blue")
+plt.plot(radial_range_bins[1:], theoretical_sum, label = "theoretical density", color = "tab:orange")
+plt.legend()
+plt.xlabel("radial range / parsec")
+plt.ylabel("density / solar masses / parsec^3")
+plt.savefig("density_check_data_1_N100_15_bins.png")
+plt.cla()

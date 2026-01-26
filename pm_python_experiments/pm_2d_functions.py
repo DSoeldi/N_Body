@@ -18,31 +18,6 @@ def generateGrid(N:int,Boundaries:tuple):
     Grid['x'], Grid['y'] = X, Y
     return Grid
 
-# def oneNodeMassAssignment(Particle, Grid, total_mass):
-#     """
-#     xxx
-#     """
-#     N = len(Grid)
-#     particle_position = np.array(Particle[["x", "y"]])
-#     gridpoints = np.column_stack((Grid["x"].ravel(), Grid["y"].ravel())) 
-#     distances = np.linalg.norm(gridpoints - particle_position, axis = 1)
-#     closest_coord = np.argmin(distances) # index of minimal distance in the stacked coordinate array
-#     closest_index = np.unravel_index(closest_coord, (N,N)) # return indexes in NxN array
-#     Grid["mass"][closest_index] += Particle["M"]/total_mass
-#     return Grid
-
-# def oneNodeMassAssignment(galaxy_array, Grid, total_mass):
-#     """
-#     xxx
-#     """
-#     N = len(Grid)
-#     gridpoints = np.column_stack((Grid["x"].ravel(), Grid["y"].ravel())) 
-#     tree = cKDTree(gridpoints)
-#     particle_points = np.column_stack((galaxy_array['x'], galaxy_array['y']))
-#     _, indices = tree.query(particle_points)
-#     print(indices)
-#     return Grid
-
 @numba.jit(nopython=True)
 def populateMassGrid_JIT(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
     mass_grid = np.zeros((N, N))
@@ -203,34 +178,6 @@ def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
 #     density_grid = mass_grid / cell_area
     
 #     return density_grid
-
-
-# @numba.jit(nopython = True)
-# def populateMassGrid_JIT(galaxy_array, Grid, total_mass):
-#     """
-#     xxx
-#     """
-#     length = len(galaxy_array)
-#     N = len(Grid)
-#     Grid["mass"].fill(0)
-#     for particle in galaxy_array:
-#         particle_position = np.array([particle['x'], particle['y']])
-#         gridpoints = np.column_stack((Grid['x'].ravel(), Grid['y'].ravel()))
-
-#         # Compute distances manually
-#         distances = np.zeros(len(gridpoints))
-#         for i in range(len(gridpoints)):
-#             dx = gridpoints[i, 0] - particle_position[0]
-#             dy = gridpoints[i, 1] - particle_position[1]
-#             distances[i] = np.sqrt(dx*dx + dy*dy)
-
-#         closest_coord = np.argmin(distances)
-#         # Manual conversion from flat index to 2D index
-#         row = closest_coord // N
-#         col = closest_coord % N
-#         Grid['mass'][row, col] += particle['M'] / total_mass
-
-#     return Grid
 
 def calcPotential(Grid):
     """
@@ -398,20 +345,98 @@ def leapfrog_integration(galaxy, Grid, dt, N=100):
     galaxy = pd.DataFrame(galaxy_array, columns=['M', 'x', 'y', 'z', 'vx','vy', 'vz', 'eps'])
     return galaxy
 
+@numba.jit(nopython=True) 
+def calc_brute_force(r, m, epsilon): 
+    G = 1
+    Force = np.zeros_like(r)  # Nx2 array for 2D forces
+    n = len(r)
+    
+    for i in range(n):
+        for j in range(i+1, n):
+            # Vector from i to j (calculated for THIS specific pair)
+            dx = r[j, 0] - r[i, 0]
+            dy = r[j, 1] - r[i, 1]
+            
+            # Distance with softening
+            dist = np.sqrt(dx**2 + dy**2 + epsilon**2)
+            
+            # Force magnitude
+            force_magnitude = G * m[i] * m[j] / (dist**3)
+            
+            # Force vector components
+            fx_ij = force_magnitude * dx
+            fy_ij = force_magnitude * dy
+            
+            Force[i, 0] += fx_ij   # positive for i
+            Force[i, 1] += fy_ij
+            Force[j, 0] -= fx_ij   # negative for j (Newton's 3rd law)
+            Force[j, 1] -= fy_ij
+    
+    fx = Force[:, 0]
+    fy = Force[:, 1]
+            
+    return fx, fy
 
-# def populateMassGrid(galaxy_array, Grid):
-#     """
-#     xxx
-#     """
-#     length = len(galaxy_array)
-#     total_mass = galaxy_array.M.sum()
-#     Grid["mass"] = np.zeros_like(Grid["mass"])
-#     for particle in galaxy_array.iterrows():
-#         # if index % 10 == 0:
-#         #     print(f"progress: {round(100*index/length, 1)}% done")
-#         Grid = oneNodeMassAssignment(particle, Grid, total_mass)
-#     return Grid
+def leapfrog_integration_brute_force(galaxy, dt, N=100):
+    """
+    Perform a single leapfrog timestep for all particles simultaneously.
+    
+    The leapfrog algorithm:
+    1. v(t + dt/2) = v(t) + a(t) * dt/2  (kick)
+    2. x(t + dt) = x(t) + v(t + dt/2) * dt  (drift)
+    3. v(t + dt) = v(t + dt/2) + a(t + dt) * dt/2  (kick)
+    
+    For the first step, we use a simplified version (kick-drift-kick).
+    
+    Parameters:
+    - galaxy_array: structured array with particle data ('x', 'y', 'vx', 'vy', etc.)
+    - Grid: structured array with grid data including 'potential'
+    - dt (float): Timestep size
+    - N (int): Grid resolution (default 100)
+    
+    Returns:
+    - galaxy_array: Updated particle array with new positions and velocities
+    """
+    dx = 2.0 / N
+    dy = 2.0 / N
+    galaxy_array = galaxy.to_records(index=False)  # Konvertieren
 
+    r = np.column_stack((galaxy_array['x'], galaxy_array['y']))    
+    m = galaxy_array[['M']]
+    m = m["M"]
+
+
+    fx, fy = calc_brute_force(r,m, 0.118)
+
+    # Convert forces to accelerations (assuming unit mass or mass already included in force)
+    ax = fx / galaxy_array["M"]
+    ay = fy / galaxy_array["M"]
+    
+    # Leapfrog step: kick-drift-kick
+    # Half-step velocity update (kick)
+    galaxy_array['vx'] += 0.5 * ax * dt
+    galaxy_array['vy'] += 0.5 * ay * dt
+    
+    # Full-step position update (drift)
+    galaxy_array['x'] += galaxy_array['vx'] * dt
+    galaxy_array['y'] += galaxy_array['vy'] * dt
+
+
+    r = np.column_stack((galaxy_array['x'], galaxy_array['y']))    
+    m = galaxy_array[['M']]
+    m = m["M"]
+
+    fx_new, fy_new = calc_brute_force(r,m, 0.118)
+    
+    # Convert forces to accelerations (assuming unit mass or mass already included in force)
+    ax_new = fx_new / galaxy_array["M"]
+    ay_new = fy_new / galaxy_array["M"]
+
+    # Half-step velocity update (kick)
+    galaxy_array['vx'] += 0.5 * ax_new * dt
+    galaxy_array['vy'] += 0.5 * ay_new * dt
+    galaxy = pd.DataFrame(galaxy_array, columns=['M', 'x', 'y', 'z', 'vx','vy', 'vz', 'eps'])
+    return galaxy
 
 ###################### diagnostics
 
@@ -421,27 +446,19 @@ def diagnosticsKineticEnergy(galaxy):
     vy = galaxy.vy
     return 0.5 * np.sum(mass * (vx**2+vy**2))
 
-def diagnosticsPotentialEnergy(Grid):
-    PE = 0.5 * np.sum(Grid['mass'] * Grid['potential']) * np.sum(Grid['mass'])
-    return PE
-
-import sys
 from numpy.linalg import norm
 def energyDiagnostics(galaxy, Grid, verbose = False):
     KE = diagnosticsKineticEnergy(galaxy)
     r = np.array(galaxy.loc[:, 'x':'y'])
     m = np.array(galaxy.loc[:, 'M'])
-    PE = np.sum(calc_potential_energy_brute(r, m, 0.118))
+    PE = np.sum(diagnostic_potential_energy_brute(r, m, 0.118))
     TE = KE+PE
     if verbose:
         print(f"KE: {KE}, PE: {PE}, TE: {TE}")
     return KE, PE, TE
 
-
-
-#####################################################
 @numba.jit(nopython=True)
-def calc_potential_energy_brute(r, m, epsilon):
+def diagnostic_potential_energy_brute(r, m, epsilon):
     """
     Calculate gravitational potential energy using direct summation.
     

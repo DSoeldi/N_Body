@@ -44,4 +44,3 @@ def calc_brute_force(r, m, epsilon):
             Force[j] -= force_vector   # negative for j because of Newtons 3rd law
             
     return Force
-
