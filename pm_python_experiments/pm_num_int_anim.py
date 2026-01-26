@@ -7,14 +7,14 @@ from celluloid import Camera
 
 
 
-path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Disk data (for choice 2)\data0.txt'
+path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Disk data (for choice 2)\data1.txt'
 galaxy = pd.read_csv(path, sep = '\t', index_col=0)
 
 ################################
-data = "0"
+data = "1"
 N = 400
 Borders = (-2,2)
-n_steps = 400
+n_steps = 200
 stepsize = 0.001
 ################################
 
