@@ -41,79 +41,12 @@ def populateMassGrid_JIT(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
     
     return mass_grid
 
-# version without dividing through area
-@numba.jit(nopython=True)
-def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
-    """
-    Cloud-in-Cell mass assignment: distribute mass to 4 nearest grid points
-    using bilinear interpolation weights.
-    """
-    mass_grid = np.zeros((N, N))
-    
-    # Extract grid bounds and spacing from flattened coordinates
-    # Assuming regular grid
-    x_min = grid_x_flat[0]
-    x_max = grid_x_flat[-1]
-    y_min = grid_y_flat[0]
-    y_max = grid_y_flat[-1]
-    
-    dx = (x_max - x_min) / (N - 1)
-    dy = (y_max - y_min) / (N - 1)
-    
-    for i in range(len(galaxy_x)):
-        px = galaxy_x[i]
-        py = galaxy_y[i]
-        mass = galaxy_M[i] / total_mass
-        
-        # Find the grid cell (lower-left corner indices)
-        # This gives us the index of the grid point to the lower-left of the particle
-        i_cell = int((px - x_min) / dx)
-        j_cell = int((py - y_min) / dy)
-        
-        # Clamp to valid grid range (avoid boundary issues)
-        if i_cell < 0:
-            i_cell = 0
-        elif i_cell >= N - 1:
-            i_cell = N - 2
-            
-        if j_cell < 0:
-            j_cell = 0
-        elif j_cell >= N - 1:
-            j_cell = N - 2
-        
-        # Calculate fractional position within the cell (0 to 1)
-        x_cell = x_min + i_cell * dx
-        y_cell = y_min + j_cell * dy
-        
-        fx = (px - x_cell) / dx
-        fy = (py - y_cell) / dy
-        
-        # Clamp fractional positions to [0, 1]
-        if fx < 0.0:
-            fx = 0.0
-        elif fx > 1.0:
-            fx = 1.0
-            
-        if fy < 0.0:
-            fy = 0.0
-        elif fy > 1.0:
-            fy = 1.0
-        
-        # Distribute mass to 4 corners using bilinear weights
-        # (i_cell, j_cell) is bottom-left in grid indices
-        mass_grid[j_cell, i_cell] += mass * (1.0 - fx) * (1.0 - fy)
-        mass_grid[j_cell, i_cell + 1] += mass * fx * (1.0 - fy)
-        mass_grid[j_cell + 1, i_cell] += mass * (1.0 - fx) * fy
-        mass_grid[j_cell + 1, i_cell + 1] += mass * fx * fy
-    
-    return mass_grid
-
-# # version with dividing through area
+# # version without dividing through area
 # @numba.jit(nopython=True)
 # def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
 #     """
 #     Cloud-in-Cell mass assignment: distribute mass to 4 nearest grid points
-#     using bilinear interpolation weights and calculate the actual density.
+#     using bilinear interpolation weights.
 #     """
 #     mass_grid = np.zeros((N, N))
     
@@ -126,12 +59,11 @@ def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
     
 #     dx = (x_max - x_min) / (N - 1)
 #     dy = (y_max - y_min) / (N - 1)
-#     cell_area = dx * dy  # Area of each grid cell
     
 #     for i in range(len(galaxy_x)):
 #         px = galaxy_x[i]
 #         py = galaxy_y[i]
-#         mass = galaxy_M[i] # removed the division through total mass as this is not needed?????
+#         mass = galaxy_M[i] / total_mass
         
 #         # Find the grid cell (lower-left corner indices)
 #         # This gives us the index of the grid point to the lower-left of the particle
@@ -174,10 +106,78 @@ def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
 #         mass_grid[j_cell + 1, i_cell] += mass * (1.0 - fx) * fy
 #         mass_grid[j_cell + 1, i_cell + 1] += mass * fx * fy
     
-#     # Calculate the actual density by dividing the mass by the cell area
-#     density_grid = mass_grid / cell_area
+#     return mass_grid
+
+# version with dividing through area
+@numba.jit(nopython=True)
+def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat, N, total_mass):
+    """
+    Cloud-in-Cell mass assignment: distribute mass to 4 nearest grid points
+    using bilinear interpolation weights and calculate the actual density.
+    """
+    mass_grid = np.zeros((N, N))
     
-#     return density_grid
+    # Extract grid bounds and spacing from flattened coordinates
+    # Assuming regular grid
+    x_min = grid_x_flat[0]
+    x_max = grid_x_flat[-1]
+    y_min = grid_y_flat[0]
+    y_max = grid_y_flat[-1]
+    
+    dx = (x_max - x_min) / (N - 1)
+    dy = (y_max - y_min) / (N - 1)
+    cell_area = dx * dy  # Area of each grid cell
+    
+    for i in range(len(galaxy_x)):
+        px = galaxy_x[i]
+        py = galaxy_y[i]
+        mass = galaxy_M[i] # removed the division through total mass as this is not needed?????
+        
+        # Find the grid cell (lower-left corner indices)
+        # This gives us the index of the grid point to the lower-left of the particle
+        i_cell = int((px - x_min) / dx)
+        j_cell = int((py - y_min) / dy)
+        
+        # Clamp to valid grid range (avoid boundary issues)
+        if i_cell < 0:
+            i_cell = 0
+        elif i_cell >= N - 1:
+            i_cell = N - 2
+            
+        if j_cell < 0:
+            j_cell = 0
+        elif j_cell >= N - 1:
+            j_cell = N - 2
+        
+        # Calculate fractional position within the cell (0 to 1)
+        x_cell = x_min + i_cell * dx
+        y_cell = y_min + j_cell * dy
+        
+        fx = (px - x_cell) / dx
+        fy = (py - y_cell) / dy
+        
+        # Clamp fractional positions to [0, 1]
+        if fx < 0.0:
+            fx = 0.0
+        elif fx > 1.0:
+            fx = 1.0
+            
+        if fy < 0.0:
+            fy = 0.0
+        elif fy > 1.0:
+            fy = 1.0
+        
+        # Distribute mass to 4 corners using bilinear weights
+        # (i_cell, j_cell) is bottom-left in grid indices
+        mass_grid[j_cell, i_cell] += mass * (1.0 - fx) * (1.0 - fy)
+        mass_grid[j_cell, i_cell + 1] += mass * fx * (1.0 - fy)
+        mass_grid[j_cell + 1, i_cell] += mass * (1.0 - fx) * fy
+        mass_grid[j_cell + 1, i_cell + 1] += mass * fx * fy
+    
+    # Calculate the actual density by dividing the mass by the cell area
+    density_grid = mass_grid / cell_area
+    
+    return density_grid
 
 def calcPotential(Grid, softening):
     """
@@ -283,7 +283,7 @@ def interpolate_forces_to_particles(particles, Grid, Fx, Fy):
     
     return fx, fy
 
-def leapfrog_integration(galaxy, Grid, dt, N=100):
+def leapfrog_integration(galaxy, Grid, dt, N=100, softening = None):
     """
     Perform a single leapfrog timestep for all particles simultaneously.
     
@@ -306,8 +306,10 @@ def leapfrog_integration(galaxy, Grid, dt, N=100):
     dx = 2.0 / N
     dy = 2.0 / N
     galaxy_array = galaxy.to_records(index=False)  # Konvertieren
-    softening = galaxy_array["eps"][0]
-    print(softening)
+
+    if softening == None:
+        softening = galaxy_array["eps"][0]
+
 
     # Compute forces on the grid
     Fx, Fy = fullGridCalc(galaxy_array, Grid, dx, dy, softening)
@@ -379,7 +381,7 @@ def calc_brute_force(r, m, softening):
             
     return fx, fy
 
-def leapfrog_integration_brute_force(galaxy, dt, N=100):
+def leapfrog_integration_brute_force(galaxy, dt, N=100, softening = None):
     """
     Perform a single leapfrog timestep for all particles simultaneously.
     
@@ -403,12 +405,16 @@ def leapfrog_integration_brute_force(galaxy, dt, N=100):
     dy = 2.0 / N
     galaxy_array = galaxy.to_records(index=False)  # Konvertieren
 
+    
+    if softening == None:
+        softening = galaxy_array["eps"][0]
+
     r = np.column_stack((galaxy_array['x'], galaxy_array['y']))    
     m = galaxy_array[['M']]
     m = m["M"]
 
 
-    fx, fy = calc_brute_force(r,m, 0.118)
+    fx, fy = calc_brute_force(r,m, softening)
 
     # Convert forces to accelerations (assuming unit mass or mass already included in force)
     ax = fx / galaxy_array["M"]
@@ -428,7 +434,7 @@ def leapfrog_integration_brute_force(galaxy, dt, N=100):
     m = galaxy_array[['M']]
     m = m["M"]
 
-    fx_new, fy_new = calc_brute_force(r,m, 0.118)
+    fx_new, fy_new = calc_brute_force(r,m, softening)
     
     # Convert forces to accelerations (assuming unit mass or mass already included in force)
     ax_new = fx_new / galaxy_array["M"]
@@ -448,12 +454,12 @@ def diagnosticsKineticEnergy(galaxy):
     vy = galaxy.vy
     return 0.5 * np.sum(mass * (vx**2+vy**2))
 
-from numpy.linalg import norm
-def energyDiagnostics(galaxy, Grid, verbose = False):
+def energyDiagnostics(galaxy, Grid, softening, verbose = False):
     KE = diagnosticsKineticEnergy(galaxy)
     r = np.array(galaxy.loc[:, 'x':'y'])
     m = np.array(galaxy.loc[:, 'M'])
-    PE = np.sum(diagnostic_potential_energy_brute(r, m, 0.118))
+    print(type(softening))
+    PE = np.sum(diagnostic_potential_energy_brute(r, m, softening))
     TE = KE+PE
     if verbose:
         print(f"KE: {KE}, PE: {PE}, TE: {TE}")
