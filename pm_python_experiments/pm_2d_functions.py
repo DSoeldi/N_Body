@@ -176,10 +176,40 @@ def populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, grid_x_flat, grid_y_flat,
     
     # Calculate the actual density by dividing the mass by the cell area
     density_grid = mass_grid / cell_area
-    
     return density_grid
 
-def calcPotential(Grid, softening):
+# # version with softening
+# def calcPotential(Grid, softening, dx, dy):
+#     """
+#     Solve the poisson equation using fast fourier transform to generate the potential field. 
+#     """
+#     mass_density = Grid["mass"]
+
+#     density_fourier_space = fft2(mass_density) # change mass density into fourier space
+#     # Compute the wave numbers
+#     nx, ny = mass_density.shape
+#     kx = 2 * np.pi * np.fft.fftfreq(nx, d = dx)
+#     ky = 2 * np.pi * np.fft.fftfreq(ny, d = dy)
+#     Kx, Ky = np.meshgrid(kx, ky)
+#     k_squared = Kx**2 + Ky**2 +(2 * np.pi / softening)**2 ### softening squared?
+
+#     # Avoid division by zero at k=0
+#     k_squared[0, 0] = 1.0
+
+#     # Compute the potential in frequency space
+#     potential_fft = 2 * np.pi * 1 * density_fourier_space / k_squared # G = 1
+
+#     # # Apply softening by modifying the kernel
+#     # softening_kernel = np.exp(-0.118 * np.sqrt(k_squared))
+#     # potential_fft *= softening_kernel
+
+#     # Perform the inverse FFT
+#     Grid["potential"] = np.real(ifft2(potential_fft))
+
+#     return Grid
+
+# version without softening
+def calcPotential(Grid, softening, dx, dy):
     """
     Solve the poisson equation using fast fourier transform to generate the potential field. 
     """
@@ -188,10 +218,10 @@ def calcPotential(Grid, softening):
     density_fourier_space = fft2(mass_density) # change mass density into fourier space
     # Compute the wave numbers
     nx, ny = mass_density.shape
-    kx = 2 * np.pi * np.fft.fftfreq(nx)
-    ky = 2 * np.pi * np.fft.fftfreq(ny)
-    Kx, Ky = np.meshgrid(kx, ky)
-    k_squared = Kx**2 + Ky**2 +(2 * np.pi / softening)**2 ### softening squared?
+    kx = 2 * np.pi * np.fft.fftfreq(nx, d = dx)
+    ky = 2 * np.pi * np.fft.fftfreq(ny, d = dy)
+    Kx, Ky = np.meshgrid(kx, ky, indexing = "xy")
+    k_squared = Kx**2 + Ky**2
 
     # Avoid division by zero at k=0
     k_squared[0, 0] = 1.0
@@ -228,7 +258,6 @@ def compute_forces(Grid, dx, dy):
     # axis=1 is x-direction, axis=0 is y-direction
     Fx = -np.gradient(potential, dx, axis=1)
     Fy = -np.gradient(potential, dy, axis=0)
-
     # # Apply the softening factor to the distance
     # softened_distance = np.sqrt(dx**2 + dy**2)
 
@@ -252,7 +281,7 @@ def fullGridCalc(galaxy_array, Grid, dx, dy, softening):
     N = len(Grid)
     Grid["mass"] = populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, 
                                      grid_x_flat, grid_y_flat, N, total_mass)    
-    Grid = calcPotential(Grid, softening)
+    Grid = calcPotential(Grid, softening, dx, dy)
     return compute_forces(Grid, dx, dy) # (Fx, Fy)
 
 def interpolate_forces_to_particles(particles, Grid, Fx, Fy):
@@ -318,8 +347,10 @@ def leapfrog_integration(galaxy, Grid, dt, N=100, softening = None):
     fx, fy = interpolate_forces_to_particles(galaxy_array, Grid, Fx, Fy)
     
     # Convert forces to accelerations (assuming unit mass or mass already included in force)
-    ax = fx / galaxy_array["M"]
-    ay = fy / galaxy_array["M"]
+    # ax = fx / galaxy_array["M"]
+    # ay = fy / galaxy_array["M"]
+    ax = fx 
+    ay = fy 
     
     # Leapfrog step: kick-drift-kick
     # Half-step velocity update (kick)
@@ -340,8 +371,10 @@ def leapfrog_integration(galaxy, Grid, dt, N=100, softening = None):
     fx_new, fy_new = interpolate_forces_to_particles(galaxy_array, Grid, Fx, Fy)
     
     # Convert forces to accelerations (assuming unit mass or mass already included in force)
-    ax_new = fx_new / galaxy_array["M"]
-    ay_new = fy_new / galaxy_array["M"]
+    # ax_new = fx_new / galaxy_array["M"]
+    # ay_new = fy_new / galaxy_array["M"]
+    ax_new = fx_new 
+    ay_new = fy_new 
 
     # Half-step velocity update (kick)
     galaxy_array['vx'] += 0.5 * ax_new * dt
@@ -375,9 +408,10 @@ def calc_brute_force(r, m, softening):
             Force[i, 1] += fy_ij
             Force[j, 0] -= fx_ij   # negative for j (Newton's 3rd law)
             Force[j, 1] -= fy_ij
-    
+
     fx = Force[:, 0]
     fy = Force[:, 1]
+    # print("x_force:", np.max(fx))
             
     return fx, fy
 
@@ -458,7 +492,6 @@ def energyDiagnostics(galaxy, Grid, softening, verbose = False):
     KE = diagnosticsKineticEnergy(galaxy)
     r = np.array(galaxy.loc[:, 'x':'y'])
     m = np.array(galaxy.loc[:, 'M'])
-    print(type(softening))
     PE = np.sum(diagnostic_potential_energy_brute(r, m, softening))
     TE = KE+PE
     if verbose:

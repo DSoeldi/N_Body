@@ -19,12 +19,15 @@ halfmass_range = calc_R_halfmass(galaxy)
 half_mass = sum(galaxy["Mass"])/2
 
 print(halfmass_range)
-print(half_mass)
+print("halfmass radius:", half_mass)
 
 v_c = np.sqrt(half_mass/halfmass_range) 
-
+print(v_c)
 t_cross = halfmass_range/v_c # crossing time of galaxy 
+print(t_cross)
 t_relax = len(galaxy)*t_cross/(8*np.log(len(galaxy)))
-print(t_relax) # relaxation time of galaxy 
+print("relaxation timescale: ", t_relax) # relaxation time of galaxy 
 
+print(halfmass_range)
 
+print(halfmass_range/(1+np.sqrt(2)))

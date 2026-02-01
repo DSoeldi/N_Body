@@ -9,7 +9,9 @@ from scipy.interpolate import RegularGridInterpolator
 base_path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Disk data (for choice 2)\data'
 paths = []
 names = []
-additions = ["0.txt", "1.txt", "0_noise.txt", "1_noise.txt"]
+additions = ["0.txt", "0_noise.txt"]
+# additions = ["0.txt", "1.txt", "0_noise.txt", "1_noise.txt"]
+
 for addition in additions:
     paths.append(base_path+addition)
     names.append(addition[0:-4])
@@ -21,9 +23,9 @@ for i in range(len(paths)):
 
     ################################
     data = name
-    N = 300
+    N = 100
     Borders = (-1,1)
-    n_steps = 20
+    n_steps = 1
     stepsize = 0.001
     ################################
 
@@ -49,18 +51,22 @@ for i in range(len(paths)):
     plt.scatter(data = galaxy_new, x="x",y="y", s = 1);
     plt.xlim([-1,1])
     plt.ylim([-1,1])
+    plt.xlabel("x / $pc$")
+    plt.ylabel("y / $pc$")
     plt.savefig(title + "galaxy_end.png", dpi = 200)
     plt.cla()
+
     plt.plot(Energy_list)
     plt.title("Energies")
     plt.legend(labels = ["Kinetic", "Potential", "Total"])
-    plt.xlabel("steps")
-    plt.ylabel("energy")
+    plt.xlabel("Steps")
+    plt.ylabel("Energy / $M_{{\odot}}\cdot pc^2 \cdot {T_{unit}}^{-2}$")
     plt.savefig(title + "Energy_plot.png", dpi = 200)
     plt.cla()
+
     # plt.plot(Mass_list)
     # plt.title("Masses")
-    # plt.xlabel("steps")
-    # plt.ylabel("Mass")
+    # plt.xlabel("Steps")
+    # plt.ylabel("Mass / $M_{{\odot}}$")
     # plt.savefig(title + "Mass_plot.png")
     # plt.cla()

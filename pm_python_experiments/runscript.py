@@ -8,10 +8,13 @@ python_executable = sys.executable # Usually the safest way to get the current i
 print(f"Using Python executable: {python_executable}")
 
 # List of scripts to run
-scripts = [r'./pm_python_experiments/pm_num_int_anim.py', 
-           r'./pm_python_experiments/pm_num_int.py', 
-           r'./pm_python_experiments/brute_num_int_anim.py', 
+scripts = [r'./pm_python_experiments/brute_num_int_anim.py', 
            r'./pm_python_experiments/brute_num_int.py']
+# # List of scripts to run
+# scripts = [r'./pm_python_experiments/pm_num_int_anim.py', 
+#            r'./pm_python_experiments/pm_num_int.py', 
+#            r'./pm_python_experiments/brute_num_int_anim.py', 
+#            r'./pm_python_experiments/brute_num_int.py']
 processes = []
 
 print("Starting processes concurrently...")
