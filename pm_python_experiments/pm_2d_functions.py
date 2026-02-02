@@ -221,13 +221,13 @@ def calcPotential(Grid, softening, dx, dy):
     kx = 2 * np.pi * np.fft.fftfreq(nx, d = dx)
     ky = 2 * np.pi * np.fft.fftfreq(ny, d = dy)
     Kx, Ky = np.meshgrid(kx, ky, indexing = "xy")
-    k_squared = Kx**2 + Ky**2
+    k_squared = np.sqrt(Kx**2 + Ky**2) #### added sqrt
 
     # Avoid division by zero at k=0
     k_squared[0, 0] = 1.0
 
     # Compute the potential in frequency space
-    potential_fft = 2 * np.pi * 1 * density_fourier_space / k_squared # G = 1
+    potential_fft = -2 * np.pi * 1 * density_fourier_space / k_squared # G = 1 #### added -
 
     # # Apply softening by modifying the kernel
     # softening_kernel = np.exp(-0.118 * np.sqrt(k_squared))
@@ -332,8 +332,8 @@ def leapfrog_integration(galaxy, Grid, dt, N=100, softening = None):
     Returns:
     - galaxy_array: Updated particle array with new positions and velocities
     """
-    dx = 2.0 / N
-    dy = 2.0 / N
+    dx = 2.0 / (N-1)
+    dy = 2.0 / (N-1)
     galaxy_array = galaxy.to_records(index=False)  # Konvertieren
 
     if softening == None:
@@ -496,6 +496,7 @@ def energyDiagnostics(galaxy, Grid, softening, verbose = False):
     TE = KE+PE
     if verbose:
         print(f"KE: {KE}, PE: {PE}, TE: {TE}")
+    
     return KE, PE, TE
 
 @numba.jit(nopython=True)
@@ -529,5 +530,63 @@ def diagnostic_potential_energy_brute(r, m, softening):
             
             # Potential energy contribution (negative!)
             PE -= G * m[i] * m[j] / dist
+            
     
     return PE
+
+
+
+
+######################################### deepseek
+
+def calcPotential_isolated(Grid, dx, dy):
+    """
+    Solve Poisson equation with isolated boundaries using zero-padding.
+    No softening in this version for simplicity.
+    """
+    mass_density = Grid["mass"]
+    N = mass_density.shape[0]
+    
+    # Create 2N x 2N zero-padded array
+    padded_density = np.zeros((2*N, 2*N))
+    
+    # Place original density in center (indices N//2 : 3N//2)
+    start = N//2
+    end = 3*N//2
+    padded_density[start:end, start:end] = mass_density
+    
+    # FFT of padded density
+    density_fft = fft2(padded_density)
+    
+    # Wave numbers for padded grid
+    kx = 2 * np.pi * np.fft.fftfreq(2*N, d=dx)
+    ky = 2 * np.pi * np.fft.fftfreq(2*N, d=dy)
+    Kx, Ky = np.meshgrid(kx, ky, indexing='xy')
+    
+    k_squared = Kx**2 + Ky**2
+    k_squared[0, 0] = 1.0  # Avoid division by zero
+    
+    # Potential in Fourier space
+    potential_fft = 2 * np.pi * density_fft / k_squared
+    
+    # Inverse FFT and extract central region
+    padded_potential = np.real(ifft2(potential_fft))
+    Grid["potential"] = padded_potential[start:end, start:end]
+    
+    return Grid
+
+def fullGridCalc_isolated(galaxy_array, Grid, dx, dy, softening):
+    """Version with isolated boundaries"""
+    galaxy_x = galaxy_array['x']
+    galaxy_y = galaxy_array['y']
+    galaxy_M = galaxy_array['M']
+    total_mass = np.sum(galaxy_M)
+    
+    grid_x_flat = Grid['x'].ravel()
+    grid_y_flat = Grid['y'].ravel()
+    N = len(Grid)
+    
+    Grid["mass"] = populateMassGrid_CIC(galaxy_x, galaxy_y, galaxy_M, 
+                                     grid_x_flat, grid_y_flat, N, total_mass)    
+    Grid = calcPotential_isolated(Grid, dx, dy)  # Use isolated version
+    return compute_forces(Grid, dx, dy)

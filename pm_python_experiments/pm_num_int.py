@@ -57,8 +57,8 @@ for i in range(len(paths)):
     plt.scatter(data = galaxy_new, x="x",y="y", s = 1);
     plt.xlim([-1,1])
     plt.ylim([-1,1])
-    plt.show()
-    # plt.savefig(title + "galaxy_end.png", dpi = 200)
+    # plt.show()
+    plt.savefig(title + "galaxy_end.png", dpi = 200)
     plt.cla()
 
     plt.plot(Energy_list)
@@ -66,16 +66,16 @@ for i in range(len(paths)):
     plt.legend(labels = ["Kinetic", "Potential", "Total"])
     plt.xlabel("Steps")
     plt.ylabel("Energy / $M_{{\odot}}\cdot pc^2 \cdot {T_{unit}}^{-2}$")
-    plt.show()
-    # plt.savefig(title + "Energy_plot.png", dpi = 200)
+    # plt.show()
+    plt.savefig(title + "Energy_plot.png", dpi = 200)
     plt.cla()
 
-    # plt.plot(Mass_list)
-    # plt.title("Masses")
-    # plt.xlabel("Steps")
-    # plt.ylabel("Mass / $M_{{\odot}}$")
-    # plt.savefig(title + "Mass_plot.png")
-    # plt.cla()
+    plt.plot(Mass_list)
+    plt.title("Masses")
+    plt.xlabel("Steps")
+    plt.ylabel("Mass / $M_{{\odot}}$")
+    plt.savefig(title + "Mass_plot.png")
+    plt.cla()
 
     plt.plot(Velocity_list)
     # plt.title("Total Velocity")
@@ -85,3 +85,6 @@ for i in range(len(paths)):
     plt.savefig(f"galaxy_plots/velocity_plots/g{data}_N{N}_{Borders[0]}_{Borders[1]}_stps{n_steps}_dt{stepsize}__vf{velocity_factor}" + "Velocity_plot.png", dpi = 200)
     # plt.show()
     plt.cla()
+
+
+virial_ratio = 0.7625

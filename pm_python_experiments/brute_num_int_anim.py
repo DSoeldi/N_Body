@@ -10,8 +10,8 @@ from celluloid import Camera
 base_path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Disk data (for choice 2)\data'
 paths = []
 names = []
-additions = ["0.txt", "0_noise.txt"]
-# additions = ["0.txt", "1.txt", "0_noise.txt", "1_noise.txt"]
+# additions = ["0.txt", "0_noise.txt"]
+additions = ["0.txt", "1.txt", "0_noise.txt", "1_noise.txt"]
 
 for addition in additions:
     paths.append(base_path+addition)
@@ -24,9 +24,9 @@ for i in range(len(paths)):
 
     ################################
     data = name
-    N = 300
+    N = 40
     Borders = (-1,1)
-    n_steps = 100
+    n_steps = 200
     stepsize = 0.001
     ################################
 

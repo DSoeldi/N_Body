@@ -7,6 +7,7 @@ from numpy.linalg import norm
 path = r'C:\Users\UZH\OneDrive - Universität Zürich UZH\Dokumente\HS25\Computational Astrophysics\N_Body_Repo\N_Body\Prerequisites\Data for choice 1\data.txt'
 m, r, v, minigalaxy, galaxy = get_galaxy_data(n = None)
 epsilon_list = [0,0.01,0.048596998711201725,0.1]
+# epsilon_list = [0.048596998711201725]
 
 def force_plotting(radial_range, brute_force, analytical_force, epsilon):
     plt.grid()
@@ -19,7 +20,7 @@ def force_plotting(radial_range, brute_force, analytical_force, epsilon):
     plt.legend()
     # plt.ylim([0,6*1e8])
     # plt.title(f"softening = {epsilon}")
-    plt.savefig(f"./project_intro/brute_force_calculations/brute_force_softening_{epsilon}.png")
+    plt.savefig(f"./project_intro/brute_force_calculations/brute_force_softening_{epsilon}.png", dpi = 200)
     plt.cla()
 
 for epsilon in epsilon_list:

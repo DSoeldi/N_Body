@@ -23,13 +23,15 @@ for i in range(len(paths)):
     galaxy = pd.read_csv(path, sep = '\t', index_col=0)
 
     ################################
+    velocity_factor = 1
     data = name
     N = 30
     Borders = (-1,1)
     n_steps = 200
     stepsize = 0.001
     ################################
-
+    galaxy.vx = galaxy.vx*velocity_factor
+    galaxy.vy = galaxy.vy*velocity_factor
 
     # Generate Grid
     Grid = pm.generateGrid(N,Borders)
@@ -47,7 +49,7 @@ for i in range(len(paths)):
         plt.ylabel("y / $pc$")
         camera.snap()
     anim = camera.animate(blit = True, interval = 1)
-    anim.save(f"galaxy_animations/g{data}_d_no_s_N{N}_{Borders[0]}_{Borders[1]}_stp{n_steps}_dt{stepsize}.gif", fps = 200, dpi = 200)
+    anim.save(f"galaxy_animations/g{data}_d_no_s_N{N}_{Borders[0]}_{Borders[1]}_stp{n_steps}_dt{stepsize}__vf{velocity_factor}.gif", fps = 200, dpi = 200)
 
 
     # fig, (ax1, ax2) = plt.subplots(1,2, figsize = [14,7])
